@@ -97,6 +97,10 @@ func main() {
     //rutas de pedidos
     orderRoutes.OrderRoutes(r, createOrderController, getOrdersController)
 
+    // Iniciar consumidores de RabbitMQ
+	go adapters.ConsumeConfirmedOrders(orderRepository)
+	go adapters.ConsumeRejectedOrders(orderRepository)
+
     log.Println("Server started at :8080")
     if err := r.Run(":8080"); err != nil {
         log.Fatalf("Error starting server: %v", err)
