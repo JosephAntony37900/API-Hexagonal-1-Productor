@@ -24,6 +24,8 @@ import (
     orderRoutes "github.com/JosephAntony37900/API-Hexagonal-1-Productor/Order/infraestructure/routes"
 
     "github.com/gin-gonic/gin"
+    "github.com/JosephAntony37900/API-Hexagonal-1-Productor/Order/infraestructure/adapters"
+
 )
 
 func main() {
@@ -34,10 +36,17 @@ func main() {
     }
     defer db.Close()
 
+    // Inicializar RabbitMQ
+	adapters.InitRabbitMQ()
+	defer adapters.CloseRabbitMQ()
+
+    // Obtener el canal de RabbitMQ
+	channel := adapters.GetChannel()
+
     // Repositorios
     productRepository := productRepo.NewProductRepoMySQL(db)
     userRepository := userRepo.NewCreateUserRepoMySQL(db)
-    orderRepository := orderRepo.NewOrderRepoMySQL(db) 
+    orderRepository := orderRepo.NewOrderRepoMySQL(db, channel) 
 
     // Casos de uso para productos
     createProduct := productApp.NewCreateProduct(productRepository)
@@ -76,19 +85,18 @@ func main() {
     // Configuración del enrutador de Gin
     r := gin.Default()
 
-    // Configurar CORS
+    //CORS
     r.Use(helpers.SetupCORS())
 
-    // Configurar rutas de productos
+    //rutas de productos
     productRoutes.SetupProductRoutes(r, createProductController, getProductsController, updateProductController, deleteProductController, getProductsByMinPriceController)
 
-    // Configurar rutas de usuarios
+    //rutas de usuarios
     userRoutes.SetupUserRoutes(r, createUserController, getUserController, deleteUserController, updateUserController)
 
-    // Configurar rutas de pedidos ✅
+    //rutas de pedidos
     orderRoutes.OrderRoutes(r, createOrderController, getOrdersController)
 
-    // Iniciar servidor
     log.Println("Server started at :8080")
     if err := r.Run(":8080"); err != nil {
         log.Fatalf("Error starting server: %v", err)

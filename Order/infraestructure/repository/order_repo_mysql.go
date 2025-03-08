@@ -2,21 +2,23 @@ package repository
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/JosephAntony37900/API-Hexagonal-1-Productor/Order/domain/entities"
+	"github.com/streadway/amqp"
 )
 
 type OrderRepoMySQL struct {
-	db *sql.DB
+	db      *sql.DB
+	channel *amqp.Channel // Agregar el canal de RabbitMQ como campo
 }
 
 // Constructor del repositorio
-func NewOrderRepoMySQL(db *sql.DB) *OrderRepoMySQL {
-	return &OrderRepoMySQL{db: db}
+func NewOrderRepoMySQL(db *sql.DB, channel *amqp.Channel) *OrderRepoMySQL {
+	return &OrderRepoMySQL{db: db, channel: channel}
 }
 
-// Método para guardar el pedido en la base de datos
 func (r *OrderRepoMySQL) Save(order entities.Order) error {
 	query := `
 		INSERT INTO Pedidos (Usuario_id, Producto, Estado, Pais, Entidad_federativa, Cp)
@@ -28,8 +30,8 @@ func (r *OrderRepoMySQL) Save(order entities.Order) error {
 		return fmt.Errorf("error al guardar el pedido en la BD: %w", err)
 	}
 
-	// 🔹 Publicar evento en la cola "order.created" para que la API Consumidora lo procese
-	err = PublishOrderCreated(order)
+	//  Publicar evento en la cola "order.created" para que la API Consumidora lo procese
+	err = r.PublishOrderCreated(order)
 	if err != nil {
 		return fmt.Errorf("error al publicar evento en la cola: %w", err)
 	}
@@ -85,7 +87,7 @@ func (r *OrderRepoMySQL) Delete(orderID int) error {
 		return fmt.Errorf("no se encontró el pedido con ID %d", orderID)
 	}
 
-	fmt.Printf("✅ Pedido %d eliminado correctamente\n", orderID)
+	fmt.Printf(" Pedido %d eliminado correctamente\n", orderID)
 	return nil
 }
 
@@ -107,7 +109,7 @@ func (r *OrderRepoMySQL) Update(order entities.Order) error {
         return fmt.Errorf("no se encontró el pedido con ID %d", order.Id)
     }
 
-    fmt.Printf("✅ Pedido %d actualizado correctamente\n", order.Id)
+    fmt.Printf(" Pedido %d actualizado correctamente\n", order.Id)
     return nil
 }
 
@@ -128,11 +130,29 @@ func (r *OrderRepoMySQL) FindByID(orderID int) (*entities.Order, error) {
     return &order, nil
 }
 
+//publicar event
+func (r *OrderRepoMySQL) PublishOrderCreated(order entities.Order) error {
+	// Convertir la orden a JSON
+	orderJSON, err := json.Marshal(order)
+	if err != nil {
+		return fmt.Errorf("error al convertir la orden a JSON: %w", err)
+	}
 
-// Función para publicar el evento en RabbitMQ
-func PublishOrderCreated(order entities.Order) error {
-	// Aquí iría la lógica para enviar el evento a la cola "order.created"
-	// ⚠️ Implementación pendiente para integración con RabbitMQ
-	fmt.Printf("✅ Evento 'order.created' publicado para el pedido %d\n", order.Id)
+	// Publicar el mensaje en la cola "created.order"
+	err = r.channel.Publish(
+		"",               // exchange
+		"created.order",  // queue name
+		false,            // mandatory
+		false,            // immediate
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        orderJSON,
+		},
+	)
+	if err != nil {
+		return fmt.Errorf("error al publicar el mensaje en RabbitMQ: %w", err)
+	}
+
+	fmt.Printf(" Evento 'order.created' publicado para el pedido %d\n", order.Id)
 	return nil
 }
