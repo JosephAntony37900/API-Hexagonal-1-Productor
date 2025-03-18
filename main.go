@@ -54,12 +54,14 @@ func main() {
     updateProduct := productApp.NewUpdateProduct(productRepository)
     deleteProduct := productApp.NewDeleteProduct(productRepository)
     getProductsByMinPrice := productApp.NewGetProductsByMinPrice(productRepository)
+    
 
     // Casos de uso para usuarios
     createUser := userApp.NewCreateUser(userRepository)
     getUsers := userApp.NewGetUsers(userRepository)
     deleteUsers := userApp.NewDeleteUser(userRepository)
     updateUsers := userApp.NewUpdateUser(userRepository)
+    loginUser := userApp.NewLoginUser(userRepository)
 
     // Casos de uso para pedidos
     createOrder := orderApp.NewCreateOrder(orderRepository) 
@@ -77,6 +79,7 @@ func main() {
     getUserController := userController.NewUsersController(getUsers)
     deleteUserController := userController.NewDeleteUserController(deleteUsers)
     updateUserController := userController.NewUpdateUserController(updateUsers)
+    loginUserController := userController.NewLoginUserController(loginUser)
 
     // Controladores para pedidos
     createOrderController := orderController.NewCreateOrderController(createOrder)
@@ -92,7 +95,7 @@ func main() {
     productRoutes.SetupProductRoutes(r, createProductController, getProductsController, updateProductController, deleteProductController, getProductsByMinPriceController)
 
     //rutas de usuarios
-    userRoutes.SetupUserRoutes(r, createUserController, getUserController, deleteUserController, updateUserController)
+    userRoutes.SetupUserRoutes(r, createUserController, loginUserController, getUserController, deleteUserController, updateUserController)
 
     //rutas de pedidos
     orderRoutes.OrderRoutes(r, createOrderController, getOrdersController)
