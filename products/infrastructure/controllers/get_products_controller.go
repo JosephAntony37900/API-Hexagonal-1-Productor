@@ -17,7 +17,6 @@ func NewGetProductsController(getProducts *application.GetProducts) *GetProducts
 
 func (c *GetProductsController) Handle(ctx *gin.Context) {
 	log.Println("Petición para listar todos los productos, recibido")
-	// Obtener los productos
 	products, err := c.getProducts.Run()
 	if err != nil {
 		log.Printf("Error buscando products: %v", err)

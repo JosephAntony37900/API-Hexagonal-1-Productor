@@ -16,14 +16,12 @@ func NewUpdateProductController(updateProduct *application.UpdateProduct) *Updat
 }
 
 func (c *UpdateProductController) Handle(ctx *gin.Context) {
-	// Obtener el ID del producto de la URL
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
 		ctx.JSON(400, gin.H{"error": "invalid product ID"})
 		return
 	}
 
-	// Decodificar el cuerpo de la solicitud
 	var request struct {
 		Nombre  string  `json:"Nombre"`
 		Precio float64 `json:"Precio"`
@@ -34,12 +32,10 @@ func (c *UpdateProductController) Handle(ctx *gin.Context) {
 		return
 	}
 
-	// Ejecutar el caso de uso para actualizar el producto
 	if err := c.updateProduct.Run(id, request.Nombre, request.Precio, request.Cantidad); err != nil {
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Respuesta de éxito
 	ctx.JSON(200, gin.H{"message": "product updated successfully"})
 }

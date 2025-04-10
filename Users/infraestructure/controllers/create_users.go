@@ -30,7 +30,7 @@ func (c *CreateUserController) Handle(ctx *gin.Context){
 	}
     log.Printf("Creando usuario: Nombre=%s, email=%s", request.Nombre, request.Email)
 
-	if err := c.CreateUsers.Run(request.Email, request.Nombre, request.Contraseña); err != nil{
+	if err := c.CreateUsers.Run(request.Nombre, request.Email, request.Contraseña); err != nil{
 		log.Printf("Error creando el usuario: %v", err)
 		ctx.JSON(500, gin.H{"error": err.Error()})
 		return

@@ -6,5 +6,3 @@ type Product struct {
 	Precio float64
 	Cantidad int
 }
-
-

@@ -36,7 +36,7 @@ func (r *ProductRepoMySQL) FindByID(id int) (*entities.Product, error) {
 }
 
 func (r *ProductRepoMySQL) FindAll() ([]entities.Product, error) {
-	query := "SELECT Id, Name, Price, Cantidad FROM productos"
+	query := "SELECT Id, Nombre, Precio, Cantidad FROM productos"
 	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error buscando el producto: %w", err)
