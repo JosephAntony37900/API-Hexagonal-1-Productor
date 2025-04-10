@@ -12,7 +12,6 @@ import (
 
 func InitOrderDependencies(Engine *gin.Engine, db *sql.DB){
 	adapters.InitRabbitMQ()
-	defer adapters.CloseRabbitMQ()
 
 	channel := adapters.GetChannel()
 

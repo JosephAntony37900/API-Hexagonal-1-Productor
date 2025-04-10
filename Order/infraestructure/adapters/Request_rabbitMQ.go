@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/joho/godotenv"
 	amqp "github.com/streadway/amqp"
@@ -15,21 +16,28 @@ import (
 var conn *amqp.Connection
 var channel *amqp.Channel
 
-// Inicializa la conexión a RabbitMQ
 func InitRabbitMQ() {
-	// Cargar variables de entorno
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("No se pudo cargar el archivo .env")
 	}
 
-	username := os.Getenv("Name")
-	password := os.Getenv("PasswordQueue")
+	username := os.Getenv("RABBITMQ_USER")
+	password := os.Getenv("RABBITMQ_PASS")
+	host := os.Getenv("RABBITMQ_HOST")
+	port := os.Getenv("RABBITMQ_PORT")
 
-	rabbitURL := fmt.Sprintf("amqp://%s:%s@98.85.106.157:5672/", username, password)
-	conn, err = amqp.Dial(rabbitURL)
-	if err != nil {
-		log.Fatalf("Error al conectar con RabbitMQ: %s", err)
+	rabbitURL := fmt.Sprintf("amqp://%s:%s@%s:%s/", username, password, host, port)
+	
+	var errConn error
+	conn, errConn = amqp.Dial(rabbitURL)
+	if errConn != nil {
+		log.Printf("Error al conectar con RabbitMQ: %s. Reintentando...", errConn)
+		time.Sleep(5 * time.Second)
+		conn, errConn = amqp.Dial(rabbitURL)
+		if errConn != nil {
+			log.Fatalf("Error definitivo al conectar con RabbitMQ: %s", errConn)
+		}
 	}
 
 	channel, err = conn.Channel()
@@ -37,47 +45,48 @@ func InitRabbitMQ() {
 		log.Fatalf("Error al abrir un canal en RabbitMQ: %s", err)
 	}
 
-	// Declarar las colas necesarias
-	_, err = channel.QueueDeclare(
-		"created.order", // name
-		true,            // durable
-		false,           // delete when unused
-		false,           // exclusive
-		false,           // no-wait
-		nil,             // arguments
-	)
-	if err != nil {
-		log.Fatalf("Error al declarar la cola 'created.order': %s", err)
-	}
-
-	_, err = channel.QueueDeclare(
-		"order.confirmed", // name
+	err = channel.ExchangeDeclare(
+		"orders_exchange", // nombre del exchange
+		"direct",          // tipo
 		true,              // durable
-		false,             // delete when unused
-		false,             // exclusive
+		false,             // auto-deleted
+		false,             // internal
 		false,             // no-wait
 		nil,               // arguments
 	)
 	if err != nil {
-		log.Fatalf("Error al declarar la cola 'order.confirmed': %s", err)
+		log.Fatalf("Error al declarar el exchange: %s", err)
 	}
 
-	_, err = channel.QueueDeclare(
-		"order.rejected", // name
-		true,             // durable
-		false,            // delete when unused
-		false,            // exclusive
-		false,            // no-wait
-		nil,              // arguments
-	)
-	if err != nil {
-		log.Fatalf("Error al declarar la cola 'order.rejected': %s", err)
+	queues := []string{"created.order", "order.confirmed", "order.rejected"}
+	for _, queue := range queues {
+		_, err = channel.QueueDeclare(
+			queue,
+			true,  // durable
+			false, // delete when unused
+			false, // exclusive
+			false, // no-wait
+			nil,   // arguments
+		)
+		if err != nil {
+			log.Fatalf("Error al declarar la cola '%s': %s", queue, err)
+		}
+
+		err = channel.QueueBind(
+			queue,           // nombre de la cola
+			queue,           // routing key
+			"orders_exchange", // exchange
+			false,           // no-wait
+			nil,             // arguments
+		)
+		if err != nil {
+			log.Fatalf("Error al hacer binding de la cola '%s': %s", queue, err)
+		}
 	}
 
 	log.Println("Conectado a RabbitMQ exitosamente")
 }
 
-// Cierra la conexión y el canal
 func CloseRabbitMQ() {
 	if channel != nil {
 		channel.Close()
@@ -87,28 +96,25 @@ func CloseRabbitMQ() {
 	}
 }
 
-// Obtener el canal de RabbitMQ
 func GetChannel() *amqp.Channel {
 	return channel
 }
 
-// ConsumeConfirmedOrders consume mensajes de la cola "order.confirmed"
 func ConsumeConfirmedOrders(repo repository.OrderRepository) {
-	// Consumir mensajes de la cola "order.confirmed"
 	msgs, err := channel.Consume(
-		"order.confirmed", // queue
-		"",                // consumer
-		true,              // auto-ack
-		false,             // exclusive
-		false,             // no-local
-		false,             // no-wait
-		nil,               // args
+		"order.confirmed",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
 		log.Fatalf("Error al registrar el consumidor para 'order.confirmed': %s", err)
 	}
 
-	log.Println("✅ Consumidor de 'order.confirmed' iniciado correctamente")
+	log.Println("Consumidor de 'order.confirmed' iniciado correctamente")
 
 	go func() {
 		for d := range msgs {
@@ -127,28 +133,26 @@ func ConsumeConfirmedOrders(repo repository.OrderRepository) {
 				continue
 			}
 
-			log.Printf("✅ Pedido %d confirmado y actualizado a 'Enviado'", order.Id)
+			log.Printf("Pedido %d confirmado y actualizado a 'Enviado'", order.Id)
 		}
 	}()
 }
 
-// ConsumeRejectedOrders consume mensajes de la cola "order.rejected"
 func ConsumeRejectedOrders(repo repository.OrderRepository) {
-	// Consumir mensajes de la cola "order.rejected"
 	msgs, err := channel.Consume(
-		"order.rejected", // queue
-		"",               // consumer
-		true,             // auto-ack
-		false,            // exclusive
-		false,            // no-local
-		false,            // no-wait
-		nil,              // args
+		"order.rejected",
+		"",
+		true,
+		false,
+		false,
+		false,
+		nil,
 	)
 	if err != nil {
 		log.Fatalf("Error al registrar el consumidor para 'order.rejected': %s", err)
 	}
 
-	log.Println("✅ Consumidor de 'order.rejected' iniciado correctamente")
+	log.Println("Consumidor de 'order.rejected' iniciado correctamente")
 
 	go func() {
 		for d := range msgs {
@@ -167,7 +171,7 @@ func ConsumeRejectedOrders(repo repository.OrderRepository) {
 				continue
 			}
 
-			log.Printf("❌ Pedido %d rechazado y actualizado a 'Fallido'", order.Id)
+			log.Printf("Pedido %d rechazado y actualizado a 'Fallido'", order.Id)
 		}
 	}()
 }
