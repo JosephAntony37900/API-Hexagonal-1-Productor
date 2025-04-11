@@ -12,10 +12,9 @@ import (
 
 type OrderRepoMySQL struct {
 	db      *sql.DB
-	channel *amqp.Channel // Agregar el canal de RabbitMQ como campo
+	channel *amqp.Channel 
 }
 
-// Constructor del repositorio
 func NewOrderRepoMySQL(db *sql.DB, channel *amqp.Channel) *OrderRepoMySQL {
 	return &OrderRepoMySQL{db: db, channel: channel}
 }
@@ -31,7 +30,6 @@ func (r *OrderRepoMySQL) Save(order entities.Order) error {
 		return fmt.Errorf("error al guardar el pedido en la BD: %w", err)
 	}
 
-	// Obtener el ID del pedido insertado
 	id, err := result.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("error al obtener el ID del pedido: %w", err)
@@ -40,7 +38,6 @@ func (r *OrderRepoMySQL) Save(order entities.Order) error {
 
 	log.Printf("✅ Pedido guardado en la BD: %+v", order)
 
-	// Publicar evento en la cola "order.created" para que la API Consumidora lo procese
 	err = r.PublishOrderCreated(order)
 	if err != nil {
 		return fmt.Errorf("error al publicar evento en la cola: %w", err)
@@ -100,7 +97,6 @@ func (r *OrderRepoMySQL) FindByUserID(usuarioID int) ([]entities.Order, error) {
 	return orders, nil
 }
 
-// Método para eliminar un pedido por su ID
 func (r *OrderRepoMySQL) Delete(orderID int) error {
 	query := `DELETE FROM Pedidos WHERE id = ?`
 
@@ -123,7 +119,6 @@ func (r *OrderRepoMySQL) Delete(orderID int) error {
 }
 
 
-// Método para encontrar un pedido por su ID
 func (r *OrderRepoMySQL) FindByID(orderID int) (*entities.Order, error) {
     query := `SELECT id, Usuario_id, Producto, Estado, Pais, Entidad_federativa, Cp FROM Pedidos WHERE id = ?`
 
@@ -139,16 +134,12 @@ func (r *OrderRepoMySQL) FindByID(orderID int) (*entities.Order, error) {
     return &order, nil
 }
 
-//publicar event
-// PublishOrderCreated publica el evento en la cola "created.order"
 func (r *OrderRepoMySQL) PublishOrderCreated(order entities.Order) error {
-	// Convertir la orden a JSON
 	orderJSON, err := json.Marshal(order)
 	if err != nil {
 		return fmt.Errorf("error al convertir la orden a JSON: %w", err)
 	}
 
-	// Publicar el mensaje en la cola "created.order"
 	err = r.channel.Publish(
 		"",               // exchange
 		"created.order",  // queue name

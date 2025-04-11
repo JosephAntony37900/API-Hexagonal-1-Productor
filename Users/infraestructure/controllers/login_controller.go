@@ -29,12 +29,16 @@ func (c *LoginUserController) Handle(ctx *gin.Context) {
 		return
 	}
 
-	valid, err := c.LoginUser.Run(request.Email, request.Password)
-	if err != nil || !valid {
+	user, token, err := c.LoginUser.Run(request.Email, request.Password)
+	if err != nil {
 		log.Printf("Error en el login: %v", err)
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciales incorrectas"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"message": "Login exitoso"})
+	ctx.JSON(http.StatusOK, gin.H{
+		"message": "Login exitoso",
+		"user":    user,     
+		"token":   token,
+	})
 }

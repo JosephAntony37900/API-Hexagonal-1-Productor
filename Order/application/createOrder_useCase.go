@@ -11,14 +11,11 @@ type CreateOrder struct {
 	repo repository.OrderRepository
 }
 
-// Constructor del caso de uso
 func NewCreateOrder(repo repository.OrderRepository) *CreateOrder {
 	return &CreateOrder{repo: repo}
 }
 
-// Método para ejecutar la lógica de creación de pedido
 func (co *CreateOrder) Run(Usuario_id int, Producto string, Pais string, Entidad_federativa string, Cp string) error {
-	// Se crea la orden con estado "Pendiente"
 	order := entities.Order{
 		Usuario_id:        Usuario_id,
 		Producto:          Producto,
@@ -28,7 +25,6 @@ func (co *CreateOrder) Run(Usuario_id int, Producto string, Pais string, Entidad
 		Cp:               Cp,
 	}
 
-	// Guardar en el repositorio
 	if err := co.repo.Save(order); err != nil {
 		return fmt.Errorf("error guardando el pedido: %w", err)
 	}

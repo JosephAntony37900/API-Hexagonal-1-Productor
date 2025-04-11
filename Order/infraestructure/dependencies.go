@@ -20,14 +20,16 @@ func InitOrderDependencies(Engine *gin.Engine, db *sql.DB){
 
 	createOrder := orderApp.NewCreateOrder(orderRepository) 
     getOrders := orderApp.NewGetOrders(orderRepository) 
+	getByIdOrder := orderApp.NewGetByIdOrder(orderRepository)
 
 	createOrderController := orderController.NewCreateOrderController(createOrder)
     getOrdersController := orderController.NewGetOrderController(getOrders)
+	getOrderByIdController := orderController.NewGetOrderByIDController(getByIdOrder)
 
 	go adapters.ConsumeConfirmedOrders(orderRepository)
 	go adapters.ConsumeRejectedOrders(orderRepository)
 
-	orderRoutes.OrderRoutes(Engine, createOrderController, getOrdersController)
+	orderRoutes.OrderRoutes(Engine, createOrderController, getOrdersController, getOrderByIdController)
 
 
 }
